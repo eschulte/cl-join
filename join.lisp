@@ -52,7 +52,7 @@ START-(1|2),END-(1|2) are bounding input designators of LIST-1 or LIST-2."
              (progn (push (append (list (car ks)) (car vs) (cdr vs)) result)
                     (next 1) (next 2))
              (if (funcall predicate (car ks) (cdr ks))
-                 (progn (when empty
+                 (progn (when (and empty (car vs))
                           (let ((empties (mapcar (lambda (el)
                                                    (declare (ignorable el))
                                                    empty)
@@ -60,7 +60,7 @@ START-(1|2),END-(1|2) are bounding input designators of LIST-1 or LIST-2."
                             (push (append (list (car ks)) (car vs) empties)
                                   result)))
                    (next 1))
-                 (progn (when empty
+                 (progn (when (and empty (cdr vs))
                           (let ((empties (mapcar (lambda (el)
                                                    (declare (ignorable el))
                                                    empty)
