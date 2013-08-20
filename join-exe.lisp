@@ -47,13 +47,14 @@ Options:
  -1,--field1 FIELD -- join on this FIELD of file 1
  -2,--field2 FIELD -- join on this FIELD of file 2
  --header ----------- treat the first line in each file as field head-
-                      ers, print them without trying to pair them~%") (quit))
+                      ers, print them without trying to pair them
+ -r,--raw ----------- print as raw lisp~%") (quit))
   (let ((file1 (pop args))
         (file2 (pop args))
         (sep #\Tab)
         (key-1 0)
         (key-2 0)
-        num empty ignore-case headers)
+        num empty ignore-case headers raw)
 
     (getopts
      ("-n" "--numbers"     (setf num t))
@@ -64,7 +65,8 @@ Options:
      ("-t" "--sep"         (setf sep (pop args)))
      ("-1" "--field1"      (setf key-1 (parse-number (pop args))))
      ("-2" "--field2"      (setf key-2 (parse-number (pop args))))
-     (nil "--header"       (setf headers t)))
+     (nil "--header"       (setf headers t))
+     ("-r" "--raw"         (setf raw t)))
 
     (let ((list1 (file-to-lists file1 sep))
           (list2 (file-to-lists file2 sep)))
@@ -76,13 +78,15 @@ Options:
                (lambda (list) (loop :for el :in list :as index :from 0
                             :unless (= index id) :collect el))))
 
-        (lists-to-stream
-         (join list1 list2 (if num #'< #'string<)
-               :empty empty
-               :test (if num #'= (if ignore-case #'string-equal #'string=))
-               :start (if headers 1 0)
-               :key-1 (keys-func key-1)
-               :key-2 (keys-func key-2)
-               :val-1 (vals-func key-1)
-               :val-2 (vals-func key-2))
-         t sep)))))
+        (let ((joined
+              (join list1 list2 (if num #'< #'string<)
+                    :empty empty
+                    :test (if num #'= (if ignore-case #'string-equal #'string=))
+                    :start (if headers 1 0)
+                    :key-1 (keys-func key-1)
+                    :key-2 (keys-func key-2)
+                    :val-1 (vals-func key-1)
+                    :val-2 (vals-func key-2))))
+          (if raw
+              (format t "~S" joined)
+              (lists-to-stream joined t sep)))))))
