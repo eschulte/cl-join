@@ -1,4 +1,4 @@
-LISP:="sbcl ccl"
+LISP:="sbcl"
 CLC:=cl-launch
 QUICK_LISP?=$(HOME)/quicklisp/
 CL_SETUP=cl-launch-setup.lisp
@@ -10,7 +10,7 @@ all: join
 $(CL_SETUP):
 	echo "(load \"$(QUICK_LISP)/setup.lisp\")" >$@
 
-join: join-exe.lisp $(CL_SETUP)
+join: join.lisp join-exe.lisp $(CL_SETUP)
 	$(CLC) $(CLFLAGS) --output $@ -r join-exe:main
 
 clean:
