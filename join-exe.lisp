@@ -40,6 +40,7 @@ whitespace.  When FILE1 or FILE2 (not both) is -, read standard input.
 Options:
  -n,--numbers ------- keys sorted according to numerical values
  -e,--empty EMPTY --- replace missing input fields with EMPTY
+                      this fills unpaired lines as well like `join -a'
  -i,--ignore-case --- ignore case when comparing fields
  -j,--join FIELD ---- equivalent to -1 FIELD -2 FIELD
  -t,--sep CHAR ------ use CHAR as input and output field separator
@@ -49,7 +50,10 @@ Options:
                       ers, print them without trying to pair them~%") (quit))
   (let ((file1 (pop args))
         (file2 (pop args))
-        num empty ignore-case sep key-1 key-2 headers)
+        (sep #\Tab)
+        (key-1 0)
+        (key-2 0)
+        num empty ignore-case headers)
 
     (getopts
      ("-n" "--numbers"     (setf num t))
@@ -64,13 +68,14 @@ Options:
 
     (let ((list1 (file-to-lists file1 sep))
           (list2 (file-to-lists file2 sep)))
-      (flet ((keys-func (num)
+      (flet ((keys-func (id)
                (if num
-                   (lambda (list) (parse-number (nth (1- num) list)))
-                   (lambda (list) (nth (1- num) list))))
-             (vals-func (num)
-               (lambda (list) (loop :for el :in list :as index :from 1
-                            :unless (= index num) :collect el))))
+                   (lambda (list) (parse-number (nth id list)))
+                   (lambda (list) (nth id list))))
+             (vals-func (id)
+               (lambda (list) (loop :for el :in list :as index :from 0
+                            :unless (= index id) :collect el))))
+
         (lists-to-stream
          (join list1 list2 (if num #'< #'string<)
                :empty empty
