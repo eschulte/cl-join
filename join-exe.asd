@@ -8,7 +8,7 @@
                join
                cl-launch
                trivial-shell
-               split-sequence)
+               cl-ppcre)
   :components
   ((:file "package-exe")
    (:file "join-exe" :depends-on ("package-exe"))))

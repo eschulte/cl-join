@@ -6,5 +6,5 @@
         :join
         :cl-launch
         :trivial-shell
-        :split-sequence)
+        :cl-ppcre)
   (:export :main))

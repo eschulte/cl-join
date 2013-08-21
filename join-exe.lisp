@@ -15,22 +15,23 @@
                       `((or (string= ,arg ,short) (string= ,arg ,long)) ,@body))
                     forms)))))
 
-(defun parse-number (string) (read-from-string string))
+(defun parse-number (string)
+  (when string (read-from-string string)))
 
 (defun unsafe-open (native)
   "Need an unsafe open which doesn't check existence for /proc/*/fd/* files."
   #+sbcl
   (sb-impl::make-fd-stream (sb-unix:unix-open native sb-unix:o_rdonly #o666)))
 
-(defun file-to-lists (file seperator)
-  (mapcar {split-sequence seperator}
+(defun file-to-lists (file regex)
+  (mapcar {split regex}
           (let ((in (unsafe-open file)))
             (prog1 (loop :for line = (read-line in nil nil) :while line
                       :collect line)
               (close in)))))
 
-(defun lists-to-stream (lines stream seperator)
-  (format stream (format nil "~~{~~{~~a~~^~a~~}~~^~~%~~}~~%" seperator) lines))
+(defun lists-to-stream (lines stream separator)
+  (format stream (format nil "~~{~~{~~a~~^~a~~}~~^~~%~~}~~%" separator) lines))
 
 (defun main (&optional (args *arguments*))
   (when (or (not args) (< (length args) 2)
@@ -47,7 +48,8 @@ Options:
                       this fills unpaired lines as well like `join -a'
  -i,--ignore-case --- ignore case when comparing fields
  -j,--join FIELD ---- equivalent to -1 FIELD -2 FIELD
- -t,--sep CHAR ------ use CHAR as input and output field separator
+ -t,--sep REGEX ----- use REGEX as input field separator
+ -o,--output CHAR --- use CHAR as output field separator
  -1,--field1 FIELD -- join on this FIELD of file 1
  -2,--field2 FIELD -- join on this FIELD of file 2
  --header ----------- treat the first line in each file as field head-
@@ -55,7 +57,8 @@ Options:
  -r,--raw ----------- print as raw lisp~%") (quit))
   (let ((file1 (pop args))
         (file2 (pop args))
-        (sep #\Tab)
+        (sep "[\t \r\n]")
+        (o-sep #\Tab)
         (key-1 0)
         (key-2 0)
         num empty ignore-case headers raw)
@@ -67,6 +70,7 @@ Options:
      ("-j" "--join"        (let ((keys (parse-number (pop args))))
                              (setf key-1 keys key-2 keys)))
      ("-t" "--sep"         (setf sep (pop args)))
+     ("-o" "--output"      (setf o-sep (pop args)))
      ("-1" "--field1"      (setf key-1 (parse-number (pop args))))
      ("-2" "--field2"      (setf key-2 (parse-number (pop args))))
      (nil "--header"       (setf headers t))
@@ -93,4 +97,4 @@ Options:
                     :val-2 (vals-func key-2))))
           (if raw
               (format t "~S" joined)
-              (lists-to-stream joined t sep)))))))
+              (lists-to-stream joined t o-sep)))))))
