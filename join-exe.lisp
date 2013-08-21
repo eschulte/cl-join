@@ -6,6 +6,8 @@
 
 ;;; Code:
 (in-package :join-exe)
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (enable-curry-compose-reader-macros))
 
 (defmacro getopts (&rest forms)
   (let ((arg (gensym)))
@@ -19,9 +21,11 @@
   (when string (read-from-string string)))
 
 (defun unsafe-open (native)
-  "Need an unsafe open which doesn't check existence for /proc/*/fd/* files."
+  "An unsafe open which doesn't check existence for /proc/*/fd/* files."
   #+sbcl
-  (sb-impl::make-fd-stream (sb-unix:unix-open native sb-unix:o_rdonly #o666)))
+  (sb-impl::make-fd-stream (sb-unix:unix-open native sb-unix:o_rdonly #o666))
+  #+ccl
+  (ccl::make-fd-stream (ccl::fd-open native #$O_RDONLY)))
 
 (defun file-to-lists (file regex)
   (mapcar {split regex}
