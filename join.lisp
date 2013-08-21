@@ -50,13 +50,16 @@ START-(1|2),END-(1|2) are bounding input designators of LIST-1 or LIST-2."
                           (setf (,fun ks) nil)))))
                (collect (side)
                  (let ((fun (case side (1 'car) (2 'cdr))))
-                   `(push
-                     (append (list (,fun ks)) (,fun vs)
-                             (mapcar (lambda (el)
-                                       (declare (ignorable el))
-                                       empty)
-                                     (,fun vs)))
-                     result))))
+                   `(let ((k  (,fun ks))
+                          (v1 (,fun vs))
+                          (v2 (mapcar (lambda (el)
+                                        (declare (ignorable el))
+                                        empty)
+                                      (,fun vs))))
+                      (push ,(case side
+                                   (1 `(append (list k) v1 v2))
+                                   (2 `(append (list k) v2 v1)))
+                            result)))))
       (next 1) (next 2)
       (loop :while (and (car ks) (cdr ks)) :do
          (cond
