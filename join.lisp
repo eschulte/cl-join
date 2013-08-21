@@ -31,8 +31,8 @@ START,END are bounding input designators of LIST-1 and LIST-2.
 
 START-(1|2),END-(1|2) are bounding input designators of LIST-1 or LIST-2."
   (declare (optimize speed))
-  (let ((ends (cons (or end-1 end (length list-1))
-                    (or end-2 end (length list-2))))
+  (let ((ends (cons (or end-1 end (1- (length list-1)))
+                    (or end-2 end (1- (length list-2)))))
         (inds (cons (1- (or start-1 start 0))
                     (1- (or start-2 start 0))))
         (keys (cons (or key-1 key) (or key-2 key)))
@@ -44,28 +44,38 @@ START-(1|2),END-(1|2) are bounding input designators of LIST-1 or LIST-2."
                  (let ((it (gensym))
                        (fun (case list (1 'car) (2 'cdr))))
                    `(let ((,it (nth (incf (,fun inds)) (,fun lists))))
-                      (setf (,fun ks) (funcall (,fun keys) ,it)
-                            (,fun vs) (funcall (,fun vals) ,it))))))
+                      (if (< (,fun inds) (,fun ends))
+                          (setf (,fun ks) (funcall (,fun keys) ,it)
+                                (,fun vs) (funcall (,fun vals) ,it))
+                          (setf (,fun ks) nil)))))
+               (collect (side)
+                 (let ((fun (case side (1 'car) (2 'cdr))))
+                   `(push
+                     (append (list (,fun ks)) (,fun vs)
+                             (mapcar (lambda (el)
+                                       (declare (ignorable el))
+                                       empty)
+                                     (,fun vs)))
+                     result))))
       (next 1) (next 2)
-      (loop :until (tree-equal inds ends) :do
-         (if (funcall test (car ks) (cdr ks))
-             (progn (push (append (list (car ks)) (car vs) (cdr vs)) result)
-                    (next 1) (next 2))
-             (if (funcall predicate (car ks) (cdr ks))
-                 (progn (when (and empty (car vs))
-                          (let ((empties (mapcar (lambda (el)
-                                                   (declare (ignorable el))
-                                                   empty)
-                                                 (car vs))))
-                            (push (append (list (car ks)) (car vs) empties)
-                                  result)))
-                   (next 1))
-                 (progn (when (and empty (cdr vs))
-                          (let ((empties (mapcar (lambda (el)
-                                                   (declare (ignorable el))
-                                                   empty)
-                                                 (cdr vs))))
-                            (push (append (list (cdr ks)) empties (cdr vs))
-                                  result)))
-                        (next 2))))))
+      (loop :while (and (car ks) (cdr ks)) :do
+         (cond
+           ;; equal key so add line from both
+           ((funcall test (car ks) (cdr ks))
+            (push (append (list (car ks)) (car vs) (cdr vs)) result)
+            (next 1) (next 2))
+           ;; left side is ahead
+           ((funcall predicate (car ks) (cdr ks))
+            (when (and empty (car vs)) (collect 1))
+            (next 1))
+           ;; right side is ahead
+           (t
+            (when (and empty (cdr vs)) (collect 2))
+            (next 2))))
+      (when empty ;; drain the remaining list
+        (cond
+          ((< (car inds) (car ends))
+           (loop :while (car ks) :do (collect 1) (next 1)))
+          ((< (cdr inds) (cdr ends))
+           (loop :while (cdr ks) :do (collect 2) (next 2))))))
     (nreverse result)))
