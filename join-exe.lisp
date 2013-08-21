@@ -17,13 +17,17 @@
 
 (defun parse-number (string) (read-from-string string))
 
+(defun unsafe-open (native)
+  "Need an unsafe open which doesn't check existence for /proc/*/fd/* files."
+  #+sbcl
+  (sb-impl::make-fd-stream (sb-unix:unix-open native sb-unix:o_rdonly #o666)))
+
 (defun file-to-lists (file seperator)
   (mapcar {split-sequence seperator}
-          (split-sequence #\Newline
-            (with-open-file (in file)
-              (let ((seq (make-string (file-length in))))
-                (read-sequence seq in)
-                seq)))))
+          (let ((in (unsafe-open file)))
+            (prog1 (loop :for line = (read-line in nil nil) :while line
+                      :collect line)
+              (close in)))))
 
 (defun lists-to-stream (lines stream seperator)
   (format stream (format nil "~~{~~{~~a~~^~a~~}~~^~~%~~}~~%" seperator) lines))
