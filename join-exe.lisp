@@ -61,9 +61,10 @@ Options:
         (o-sep #\Tab)
         (key-1 0)
         (key-2 0)
-        num empty ignore-case headers raw)
+        num empty ignore-case headers raw save)
 
     (getopts
+     ("-s" "--save"        (setf save t)) ; for debugging
      ("-n" "--numbers"     (setf num t))
      ("-e" "--empty"       (setf empty (pop args)))
      ("-i" "--ignore-case" (setf ignore-case t))
@@ -95,6 +96,9 @@ Options:
                     :key-2 (keys-func key-2)
                     :val-1 (vals-func key-1)
                     :val-2 (vals-func key-2))))
-          (if raw
-              (format t "~S" joined)
-              (lists-to-stream joined t o-sep)))))))
+          (if save
+              (format t "~&~S~%"
+                      (list list1 list2))
+              (if raw
+                  (format t "~&~S~%" joined)
+                  (lists-to-stream joined t o-sep))))))))
