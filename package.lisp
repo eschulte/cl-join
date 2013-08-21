@@ -1,5 +1,1 @@
-(defpackage #:join
-  (:use :common-lisp
-        :alexandria
-        :curry-compose-reader-macros)
-  (:export :join))
+(defpackage #:join (:use :common-lisp) (:export :join))

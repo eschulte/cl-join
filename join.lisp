@@ -6,8 +6,6 @@
 
 ;;; Code:
 (in-package :join)
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (enable-curry-compose-reader-macros))
 
 (defun join (list-1 list-2 predicate
              &key (key #'car) (val #'cdr) (test #'eql) empty
