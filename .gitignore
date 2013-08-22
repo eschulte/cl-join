@@ -1,4 +1,3 @@
 *.fasl
 *.lx32fsl
 join
-cl-launch-setup.lisp
