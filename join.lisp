@@ -42,6 +42,9 @@
   (ccl::make-fd-stream (ccl::fd-open native #$O_RDONLY)))
 
 (defun file-to-lists (file regex)
+  (unless (probe-file file)
+    (format *error-output* "missing file ~S~%" file)
+    (quit))
   (mapcar {split regex}
           (let ((in (unsafe-open file)))
             (prog1 (loop :for line = (read-line in nil nil) :while line
