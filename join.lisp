@@ -120,8 +120,9 @@ Options:
     (let ((sep "[\t \r\n]")
           (o-sep #\Tab)
           (key 0)
-          num empty ignore-case val headers)
+          num empty ignore-case val headers save)
       (getopts
+       ("-s" "--save"        (setf save t))
        ("-n" "--numbers"     (setf num t))
        ("-e" "--empty"       (setf empty (pop args)))
        ("-i" "--ignore-case" (setf ignore-case t))
@@ -131,18 +132,20 @@ Options:
        ("-o" "--output"      (setf o-sep (pop args)))
        (nil "--header"       (setf headers t)))
 
-      (lists-to-stream
-       (join (mapcar {file-to-lists _ sep} args)
-             (if num #'< #'string<)
-             :empty empty
-             :test
-             (if num #'= (if ignore-case #'string-equal #'string=))
-             :key (if num
-                      (lambda (list) (parse-number (nth key list)))
-                      (lambda (list) (nth key list)))
-             :val (if val
-                      (lambda (list) (list (nth val list)))
-                      (lambda (list)
-                        (loop :for el :in list :as index :from 0
-                           :unless (= index key) :collect el))))
-       t o-sep))))
+      (if save
+          (format t "~S~%" (mapcar {file-to-lists _ sep} args))
+          (lists-to-stream
+           (join (mapcar {file-to-lists _ sep} args)
+                 (if num #'< #'string<)
+                 :empty empty
+                 :test
+                 (if num #'= (if ignore-case #'string-equal #'string=))
+                 :key (if num
+                          (lambda (list) (parse-number (nth key list)))
+                          (lambda (list) (nth key list)))
+                 :val (if val
+                          (lambda (list) (list (nth val list)))
+                          (lambda (list)
+                            (loop :for el :in list :as index :from 0
+                               :unless (= index key) :collect el))))
+           t o-sep)))))
