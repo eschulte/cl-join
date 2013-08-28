@@ -42,7 +42,9 @@
   (ccl::make-fd-stream (ccl::fd-open native #$O_RDONLY)))
 
 (defun file-to-lists (file regex)
-  (unless (probe-file file)
+  (unless (or (and (stringp file) ; don't care if proc files aren't found
+                   (scan "\/proc\/" file))
+              (probe-file file))
     (format *error-output* "missing file ~S~%" file)
     (quit))
   (mapcar {split regex}
@@ -118,7 +120,7 @@ Options:
     (let ((sep "[\t \r\n]")
           (o-sep #\Tab)
           (key 0)
-          num empty ignore-case val headers raw)
+          num empty ignore-case val headers)
       (getopts
        ("-n" "--numbers"     (setf num t))
        ("-e" "--empty"       (setf empty (pop args)))
