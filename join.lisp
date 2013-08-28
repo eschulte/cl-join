@@ -1,4 +1,4 @@
-;;; join.lisp --- join sequences on similar elements
+;;; join.lisp --- replacement for the `join' Unix core utility
 
 ;; Copyright (C) Eric Schulte 2013
 
@@ -6,77 +6,138 @@
 
 ;;; Code:
 (in-package :join)
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (enable-curry-compose-reader-macros))
 
-(defun join (list-1 list-2 predicate
-             &key (key #'car) (val #'cdr) (test #'eql) empty
-               start end key-1 key-2 val-1 val-2 start-1 start-2 end-1 end-2)
-  "Combine elements of LIST-1 and LIST-2 which have equal values for KEY.
-LIST-1 and LIST-2 must be sorted.
+(defmacro getopts (&rest forms)
+  (let ((arg (gensym)))
+    `(block getopts
+       (loop :for ,arg = (pop args) :while ,arg :do
+          (cond
+            ,@(mapcar (lambda (args)
+                        (cond
+                          ((and (first args) (second args))
+                           `((or (scan ,(first args)  ,arg)
+                                 (scan ,(second args) ,arg))
+                             ,@(cddr args)))
+                          ((first args)
+                           `((scan ,(first args)  ,arg) ,@(cddr args)))
+                          ((second args)
+                           `((scan ,(second args)  ,arg) ,@(cddr args)))))
+                      forms)
+            (t (push ,arg args) (return-from getopts)))))))
+
+(defun quit (&optional (errno 0))
+  #+sbcl (sb-ext:exit :code errno)
+  #+ccl  (ccl:quit errno))
+
+(defun parse-number (string)
+  (when string (read-from-string string)))
+
+(defun unsafe-open (native)
+  "An unsafe open which doesn't check existence for /proc/*/fd/* files."
+  #+sbcl
+  (sb-impl::make-fd-stream (sb-unix:unix-open native sb-unix:o_rdonly #o666))
+  #+ccl
+  (ccl::make-fd-stream (ccl::fd-open native #$O_RDONLY)))
+
+(defun file-to-lists (file regex)
+  (mapcar {split regex}
+          (let ((in (unsafe-open file)))
+            (prog1 (loop :for line = (read-line in nil nil) :while line
+                      :collect line)
+              (close in)))))
+
+(defun lists-to-stream (lines stream separator)
+  (format stream (format nil "~~{~~{~~a~~^~a~~}~~^~~%~~}~~%" separator) lines))
+
+(defun join (lists predicate &key (key #'car) (val #'cdr) (test #'eql) empty)
+  "Combine elements of LISTS with matching KEYs.  Lists must be sorted.
 
 Optional arguments:
+KEY -------- returns the key by which lists should be joined
+VAL -------- returns the value for each list (must return a list)
+TEST ------- is used to determine equality.
+EMPTY ------ may be set to a value used to replaces missing input fields."
+  (declare (optimize (speed 3) (safety 0))
+           (type function key val test)
+           (type list lists))
+  (let ((empties (mapcar (constantly empty) (car lists)))
+        (indices (let (all)
+                   (dotimes (n (length lists) (nreverse all)) (push n all))))
+        results)
+    (loop :while (some [#'not #'null] lists) :do
+       (let* ((base (extremum (remove nil (mapcar [key #'car] lists))
+                              predicate))
+              (matching (mapcar (lambda (it)
+                                  (and it (funcall test base it)))
+                                (mapcar [key #'car] lists))))
+         (flet ((accept (list)
+                  (push (cons base (mapcan val (copy-tree list))) results)))
+           (cond
+             ((every #'identity matching)
+              (accept (loop :for i :in indices :collect (pop (nth i lists)))))
+             (empty
+              (accept (loop :for i :in indices :as matched :in matching
+                         :collect (if matched (pop (nth i lists)) empties))))
+             (t (loop :for i :in indices :as matched :in matching
+                   :collect (when matched (pop (nth i lists)))))))))
+    (nreverse results)))
 
-Key indicates the fields of LIST-1 and LIST-2 used to join.
+(defun main (args)
+  (let* ((help "Usage: ~a [OPTIONS...] FILES...
 
-TEST is used to determine equality.
+For each pair of input lines with identical join fields, write a
+line to standard output.  The default join field is the first,
+delimited by whitespace.  (TODO: When a single FILE is -, read
+standard input.)
 
-EMPTY may be set to a value used to replaces missing input fields.
+Options:
+ -n,--numbers ------- keys sorted according to numerical values
+ -e,--empty EMPTY --- replace missing input fields with EMPTY
+                      includes unpaired lines
+ -i,--ignore-case --- ignore case when comparing fields
+ -j,--join FIELD ---- join on this FIELD of each file
+ -v,--value FIELD --- only include FIELD of each file in output
+ -t,--sep REGEX ----- use REGEX as input field separator
+ -o,--output CHAR --- use CHAR as output field separator
+ TODO: -N,--fieldN FIELD -- join on this FIELD of file N
+ --header ----------- treat the first line in each file as field
+                      headers, print them without pairing them~%")
+         (self (pop args)))
+    (when (or (not args) (< (length args) 2)
+              (and (>= (length (car args)) 2)
+                   (string= (subseq (car args) 0 2) "-h"))
+              (and (>= (length (car args)) 3)
+                   (string= (subseq (car args) 0 3) "--h")))
+      (format t help self) (quit))
 
-KEY-1 indicates the field of LIST-1 used to join.
+    (let ((sep "[\t \r\n]")
+          (o-sep #\Tab)
+          (key 0)
+          num empty ignore-case val headers raw)
+      (getopts
+       ("-n" "--numbers"     (setf num t))
+       ("-e" "--empty"       (setf empty (pop args)))
+       ("-i" "--ignore-case" (setf ignore-case t))
+       ("-v" "--value"       (setf val (parse-number (pop args))))
+       ("-j" "--join"        (setf key (parse-number (pop args))))
+       ("-t" "--sep"         (setf sep (pop args)))
+       ("-o" "--output"      (setf o-sep (pop args)))
+       (nil "--header"       (setf headers t)))
 
-KEY-2 indicates the field of LIST-2 used to join.
-
-START,END are bounding input designators of LIST-1 and LIST-2.
-
-START-(1|2),END-(1|2) are bounding input designators of LIST-1 or LIST-2."
-  (declare (optimize speed))
-  (let ((ends (cons (or end-1 end (1- (length list-1)))
-                    (or end-2 end (1- (length list-2)))))
-        (inds (cons (1- (or start-1 start 0))
-                    (1- (or start-2 start 0))))
-        (keys (cons (or key-1 key) (or key-2 key)))
-        (vals (cons (or val-1 val) (or val-2 val)))
-        (lists (cons list-1 list-2))
-        (ks (cons nil nil)) (vs (cons nil nil))
-        result)
-    (macrolet ((next (list)
-                 (let ((it (gensym))
-                       (fun (case list (1 'car) (2 'cdr))))
-                   `(let ((,it (nth (incf (,fun inds)) (,fun lists))))
-                      (if (< (,fun inds) (,fun ends))
-                          (setf (,fun ks) (funcall (,fun keys) ,it)
-                                (,fun vs) (funcall (,fun vals) ,it))
-                          (setf (,fun ks) nil)))))
-               (collect (side)
-                 (let ((fun (case side (1 'car) (2 'cdr))))
-                   `(let ((k  (,fun ks))
-                          (v1 (,fun vs))
-                          (v2 (mapcar (lambda (el)
-                                        (declare (ignorable el))
-                                        empty)
-                                      (,fun vs))))
-                      (push ,(case side
-                                   (1 `(append (list k) v1 v2))
-                                   (2 `(append (list k) v2 v1)))
-                            result)))))
-      (next 1) (next 2)
-      (loop :while (and (car ks) (cdr ks)) :do
-         (cond
-           ;; equal key so add line from both
-           ((funcall test (car ks) (cdr ks))
-            (push (append (list (car ks)) (car vs) (cdr vs)) result)
-            (next 1) (next 2))
-           ;; left side is ahead
-           ((funcall predicate (car ks) (cdr ks))
-            (when (and empty (car vs)) (collect 1))
-            (next 1))
-           ;; right side is ahead
-           (t
-            (when (and empty (cdr vs)) (collect 2))
-            (next 2))))
-      (when empty ;; drain the remaining list
-        (cond
-          ((< (car inds) (car ends))
-           (loop :while (car ks) :do (collect 1) (next 1)))
-          ((< (cdr inds) (cdr ends))
-           (loop :while (cdr ks) :do (collect 2) (next 2))))))
-    (nreverse result)))
+      (lists-to-stream
+       (join (mapcar {file-to-lists _ sep} args)
+             (if num #'< #'string<)
+             :empty empty
+             :test
+             (if num #'= (if ignore-case #'string-equal #'string=))
+             :key (if num
+                      (lambda (list) (parse-number (nth key list)))
+                      (lambda (list) (nth key list)))
+             :val (if val
+                      (lambda (list) (list (nth val list)))
+                      (lambda (list)
+                        (loop :for el :in list :as index :from 0
+                           :unless (= index key) :collect el))))
+       t o-sep))))

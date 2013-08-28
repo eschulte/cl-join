@@ -8,13 +8,11 @@ endif
 
 BUILD_APP_FLAGS=--manifest-file $(QUICK_LISP)/local-projects/system-index.txt \
 	--asdf-tree $(QUICK_LISP)/dists/quicklisp/software \
-	--load-system join-exe
+	--load-system join
 
-all: join
-.PHONY:  clean
+join: join.lisp
+	$(BA) $(BUILD_APP_FLAGS) --output $@ --entry "join:main"
 
-join: join.lisp join-exe.lisp
-	$(BA) $(BUILD_APP_FLAGS) --output $@ --entry "join-exe:main"
-
+.PHONY: clean
 clean:
-	rm -f join *.fasl *.lx32fsl
+	rm -f join *.fasl *.lx32fsl dumper-*.lisp

@@ -1,7 +1,13 @@
 (defsystem :join
-  :description "join sequences on similar elements"
-  :version "0.0.1"
+  :description "An improved version of the join Unix coreutil."
+  :author "Eric Schulte <schulte.eric@gmail.com>"
+  :version "0.0.0"
   :licence "GPL V3"
+  :depends-on (alexandria
+               metabang-bind
+               curry-compose-reader-macros
+               cl-ppcre)
+  :serial t
   :components
   ((:file "package")
-   (:file "join" :depends-on ("package"))))
+   (:file "join")))
