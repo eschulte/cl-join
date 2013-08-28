@@ -67,7 +67,7 @@ EMPTY ------ may be set to a value used to replaces missing input fields."
   (declare (optimize (speed 3) (safety 0))
            (type function key val test)
            (type list lists))
-  (let ((empties (mapcar (constantly empty) (car lists)))
+  (let ((empties (mapcar (constantly empty) (caar lists)))
         (indices (let (all)
                    (dotimes (n (length lists) (nreverse all)) (push n all))))
         results)
