@@ -1,0 +1,28 @@
+                               cl-join
+           an enhanced version of the Unix `join' coreutil
+
+- any number of input files
+- numerically sorted join fields
+- specify single non-key field to include in output
+- include unpaired lines with empty
+
+  $ join -h
+  Usage: join [OPTIONS...] FILES...
+
+  For each pair of input lines with identical join fields, write a
+  line to standard output.  The default join field is the first,
+  delimited by whitespace.  (TODO: When a single FILE is -, read
+  standard input.)
+
+  Options:
+   -n,--numbers ------- keys sorted according to numerical values
+   -e,--empty EMPTY --- replace missing input fields with EMPTY
+                        includes unpaired lines
+   -i,--ignore-case --- ignore case when comparing fields
+   -j,--join FIELD ---- join on this FIELD of each file
+   -v,--value FIELD --- only include FIELD of each file in output
+   -t,--sep REGEX ----- use REGEX as input field separator
+   -o,--output CHAR --- use CHAR as output field separator
+   TODO: -N,--fieldN FIELD -- join on this FIELD of file N
+   --header ----------- treat the first line in each file as field
+                        headers, print them without pairing them
