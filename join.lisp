@@ -31,6 +31,13 @@
   #+sbcl (sb-ext:exit :code errno)
   #+ccl  (ccl:quit errno))
 
+(defun join-cl-debugger (&rest args)
+  "No debugging, just exiting."
+  (declare (ignorable args))
+  (quit 1))
+
+(setf *debugger-hook* #'join-cl-debugger)
+
 (defun parse-number (string)
   (when string (read-from-string string)))
 
