@@ -49,8 +49,9 @@
   (ccl::make-fd-stream (ccl::fd-open native #$O_RDONLY)))
 
 (defun file-to-lists (file regex)
-  (unless (or (and (stringp file) ; don't care if proc files aren't found
-                   (scan "\/proc\/" file))
+  ;; don't care if proc/fd or dev/fd files aren't found
+  (unless (or (and (stringp file)
+                   (scan "\/(proc|dev)\/?.*\/fd\/" file))
               (probe-file file))
     (format *error-output* "missing file ~S~%" file)
     (quit))
