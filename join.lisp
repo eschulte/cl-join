@@ -125,7 +125,7 @@ Options:
                    (string= (subseq (car args) 0 3) "--h")))
       (format t help self) (quit))
 
-    (let ((sep "[\t \r\n]")
+    (let ((sep "[\\t ]")
           (o-sep #\Tab)
           (key 0)
           num empty ignore-case val headers save)
